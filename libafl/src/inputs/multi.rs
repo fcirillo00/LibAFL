@@ -18,7 +18,7 @@ pub type MultipartInput<I, K> = ListInput<(K, I)>;
 impl<I, K> Input for MultipartInput<I, K>
 where
     I: Input,
-    K: PartialEq + Debug + Serialize + DeserializeOwned + Clone + Hash,
+    K: PartialEq + Debug + Serialize + DeserializeOwned + Clone + Hash  + 'static,
 {
     fn generate_name(&self, id: Option<CorpusId>) -> String {
         self.parts()

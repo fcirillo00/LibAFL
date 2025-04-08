@@ -1,0 +1,18 @@
+--- libafl/src/executors/forkserver.rs	2025-02-05 15:25:57.000000000 +0100
++++ libafl/src/executors/forkserver.rs	2025-03-03 16:34:55.398454475 +0100
+@@ -325,6 +321,7 @@
+         dump_asan_logs: bool,
+         coverage_map_size: Option<usize>,
+         debug_output: bool,
++        log_directory: Option<PathBuf>
+     ) -> Result<Self, Error> {
+         Self::with_kill_signal(
+             target,
+@@ -338,6 +335,7 @@
+             dump_asan_logs,
+             coverage_map_size,
+             debug_output,
++            log_directory,
+             KILL_SIGNAL_DEFAULT,
+         )
+     }

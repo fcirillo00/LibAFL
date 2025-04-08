@@ -44,7 +44,6 @@ use core::{
 };
 #[cfg(feature = "std")]
 use std::{fs::File, io::Read, path::Path};
-use std::any::Any;
 
 #[cfg(feature = "std")]
 use libafl_bolts::fs::write_file_atomic;
@@ -80,13 +79,8 @@ pub trait Input: Clone + Serialize + serde::de::DeserializeOwned + Debug + Hash 
 
 /// An input for the target
 #[cfg(feature = "std")]
-pub trait Input: Clone + Serialize + serde::de::DeserializeOwned + Debug + Hash + Any {
-    /// Implements downcasting
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
+pub trait Input: Clone + Serialize + serde::de::DeserializeOwned + Debug + Hash {
     /// Write this input to the file
-
     fn to_file<P>(&self, path: P) -> Result<(), Error>
     where
         P: AsRef<Path>,

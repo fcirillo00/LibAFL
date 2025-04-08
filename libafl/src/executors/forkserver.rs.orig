@@ -6,12 +6,17 @@ use core::{
     marker::PhantomData,
     time::Duration,
 };
-use std::{env, ffi::{OsStr, OsString}, fs, io::{self, ErrorKind, Read, Write}, os::{
-    fd::{AsRawFd, BorrowedFd},
-    unix::{io::RawFd, process::CommandExt},
-}, path::Path, process::{Child, Command, Stdio}};
-use std::fs::File;
-use std::path::PathBuf;
+use std::{
+    env,
+    ffi::{OsStr, OsString},
+    io::{self, ErrorKind, Read, Write},
+    os::{
+        fd::{AsRawFd, BorrowedFd},
+        unix::{io::RawFd, process::CommandExt},
+    },
+    path::Path,
+    process::{Child, Command, Stdio},
+};
 
 use libafl_bolts::{
     AsSlice, AsSliceMut, Truncate,
@@ -89,8 +94,7 @@ const FS_ERROR_OLD_CMPLOG_QEMU: i32 = 64_u32 as i32;
 /// Forkserver message. We'll reuse it in a testcase.
 const FAILED_TO_START_FORKSERVER_MSG: &str = "Failed to start forkserver";
 
-/// Report error and exit forkserver
-pub fn report_error_and_exit(status: i32) -> Result<(), Error> {
+fn report_error_and_exit(status: i32) -> Result<(), Error> {
     /* Report on the error received via the forkserver controller and exit */
     match status {
     FS_ERROR_MAP_SIZE =>
@@ -266,7 +270,7 @@ pub struct Forkserver {
     /// If the last run timed out (in in-target i32)
     last_run_timed_out: i32,
     /// The signal this [`Forkserver`] will use to kill (defaults to [`self.kill_signal`])
-    pub kill_signal: Signal,
+    kill_signal: Signal,
 }
 
 impl Drop for Forkserver {
@@ -315,7 +319,7 @@ impl Forkserver {
     /// with the given `kill_signal`.
     /// Using `Forkserver::new(..)` will default to [`Signal::SIGTERM`].
     #[expect(clippy::too_many_arguments)]
-    pub fn new(
+    fn new(
         target: OsString,
         args: Vec<OsString>,
         envs: Vec<(OsString, OsString)>,
@@ -327,7 +331,6 @@ impl Forkserver {
         dump_asan_logs: bool,
         coverage_map_size: Option<usize>,
         debug_output: bool,
-        log_directory: Option<PathBuf>,
         kill_signal: Signal,
     ) -> Result<Self, Error> {
         let Some(coverage_map_size) = coverage_map_size else {
@@ -357,18 +360,7 @@ impl Forkserver {
         let mut ctl_pipe = Pipe::new().unwrap();
 
         let (stdout, stderr) = if debug_output {
-            match log_directory {
-                Some(path) => {
-                    if !&path.is_dir() {
-                        fs::create_dir_all(&path).expect("Failed to create log directory");
-                    }
-                    let out_file = File::create(&path.join("stdout")).unwrap();
-                    let err_file = File::create(&path.join("stderr")).unwrap();
-                    (Stdio::from(out_file), Stdio::from(err_file))
-                }
-                None => {(Stdio::inherit(), Stdio::inherit())}
-            }
-
+            (Stdio::inherit(), Stdio::inherit())
         } else {
             (Stdio::null(), Stdio::null())
         };
@@ -670,72 +662,6 @@ where
         self.map_size
     }
 
-    /// Spawns the server
-    pub fn spawn_child(&mut self) -> Result<(), Error> {
-        let last_run_timed_out = self.forkserver.last_run_timed_out_raw();
-
-        self.forkserver.set_last_run_timed_out(false);
-        if let Err(err) = self.forkserver.write_ctl(last_run_timed_out) {
-            return Err(Error::unknown(format!(
-                "Unable to request new process from fork server (OOM?): {err:?}"
-            )));
-        }
-
-        let pid = self.forkserver.read_st().map_err(|err| {
-            Error::unknown(format!(
-                "Unable to request new process from fork server (OOM?): {err:?}"
-            ))
-        })?;
-
-        if pid <= 0 {
-            return Err(Error::unknown(
-                "Fork server is misbehaving (OOM?)".to_string(),
-            ));
-        }
-
-        self.forkserver.set_child_pid(Pid::from_raw(pid));
-
-        Ok(())
-    }
-    /// Waits for server termination
-    pub fn wait_child_termination(&mut self) -> Result<ExitKind, Error> {
-        let pid:i32 = self.forkserver.child_pid().as_raw();
-        let mut exit_kind = ExitKind::Ok;
-
-        if let Some(status) = self.forkserver.read_st_timed(&self.timeout)? {
-            self.forkserver.set_status(status);
-            let exitcode_is_crash = if let Some(crash_exitcode) = self.crash_exitcode {
-                (libc::WEXITSTATUS(self.forkserver().status()) as i8) == crash_exitcode
-            } else {
-                false
-            };
-            if libc::WIFSIGNALED(self.forkserver().status()) || exitcode_is_crash {
-                exit_kind = ExitKind::Crash;
-                #[cfg(feature = "regex")]
-                if let Some(asan_observer) = self.observers.get_mut(&self.asan_obs) {
-                    asan_observer.parse_asan_output_from_asan_log_file(pid)?;
-                }
-            }
-        } else {
-            self.forkserver.set_last_run_timed_out(true);
-
-            // We need to kill the child in case he has timed out, or we can't get the correct pid in the next call to self.executor.forkserver_mut().read_st()?
-            let _ = kill(self.forkserver().child_pid(), self.forkserver.kill_signal);
-            if let Err(err) = self.forkserver.read_st() {
-                return Err(Error::unknown(format!(
-                    "Could not kill timed-out child: {err:?}"
-                )));
-            }
-            exit_kind = ExitKind::Timeout;
-        }
-
-        if !libc::WIFSTOPPED(self.forkserver().status()) {
-            self.forkserver.reset_child_pid();
-        }
-
-        Ok(exit_kind)
-    }
-
     /// Execute input and increase the execution counter.
     #[inline]
     fn execute_input(&mut self, state: &mut S, input: &I) -> Result<ExitKind, Error>
@@ -851,7 +777,6 @@ pub struct ForkserverExecutorBuilder<'a, TC, SP> {
     arguments: Vec<OsString>,
     envs: Vec<(OsString, OsString)>,
     debug_child: bool,
-    log_directory: Option<PathBuf>,
     use_stdin: bool,
     uses_shmem_testcase: bool,
     is_persistent: bool,
@@ -1048,7 +973,6 @@ where
                 self.has_asan_obs(),
                 self.map_size,
                 self.debug_child,
-                self.log_directory.clone(),
                 self.kill_signal.unwrap_or(KILL_SIGNAL_DEFAULT),
             )?,
             None => {
@@ -1466,12 +1390,6 @@ where
         self
     }
 
-    /// If `log_directory` is set, the child will print to file inside the directory
-    pub fn log_directory(mut self, path: PathBuf) -> Self {
-        self.log_directory = Some(path);
-        self
-    }
-
     /// Call this if you want to run it under persistent mode; default is false
     #[must_use]
     pub fn is_persistent(mut self, is_persistent: bool) -> Self {
@@ -1535,7 +1453,6 @@ impl<'a> ForkserverExecutorBuilder<'a, NopTargetBytesConverter<BytesInput>, Unix
             arguments: vec![],
             envs: vec![],
             debug_child: false,
-            log_directory: None,
             use_stdin: false,
             uses_shmem_testcase: false,
             is_persistent: false,
@@ -1570,7 +1487,6 @@ impl<'a, TC> ForkserverExecutorBuilder<'a, TC, UnixShMemProvider> {
             arguments: self.arguments,
             envs: self.envs,
             debug_child: self.debug_child,
-            log_directory: self.log_directory,
             use_stdin: self.use_stdin,
             uses_shmem_testcase: self.uses_shmem_testcase,
             is_persistent: self.is_persistent,
@@ -1604,7 +1520,6 @@ impl<'a, TC, SP> ForkserverExecutorBuilder<'a, TC, SP> {
             arguments: self.arguments,
             envs: self.envs,
             debug_child: self.debug_child,
-            log_directory: self.log_directory,
             use_stdin: self.use_stdin,
             uses_shmem_testcase: self.uses_shmem_testcase,
             is_persistent: self.is_persistent,

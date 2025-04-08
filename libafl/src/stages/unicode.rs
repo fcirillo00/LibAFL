@@ -30,7 +30,8 @@ impl UnicodeIdentificationMetadata {
     }
 }
 
-pub(crate) fn extract_metadata(bytes: &[u8]) -> UnicodeIdentificationMetadata {
+/// Extract metadata from bytes
+pub fn extract_metadata(bytes: &[u8]) -> UnicodeIdentificationMetadata {
     let mut ranges = Vec::new();
 
     if !bytes.is_empty() {
