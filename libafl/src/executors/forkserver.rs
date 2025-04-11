@@ -6,10 +6,10 @@ use core::{
     marker::PhantomData,
     time::Duration,
 };
-use std::{env, ffi::{OsStr, OsString}, fs, io::{self, ErrorKind, Read, Write}, os::{
+use std::{env, ffi::OsString, fs, io::{self, ErrorKind, Read, Write}, os::{
     fd::{AsRawFd, BorrowedFd},
     unix::{io::RawFd, process::CommandExt},
-}, path::Path, process::{Child, Command, Stdio}};
+}, process::{Child, Command, Stdio}};
 use std::fs::File;
 use std::path::PathBuf;
 

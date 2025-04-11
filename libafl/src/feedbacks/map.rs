@@ -653,7 +653,11 @@ where
                 let reduced = R::reduce(existing, item);
                 if N::is_novel(existing, reduced) {
                     interesting = true;
-                    novelties.push(i);
+                    // novelties.push(i);
+                    // only add novelty if existing was 0
+                    if existing == initial {
+                        novelties.push(i);
+                    }
                 }
             }
         } else {
