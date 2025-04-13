@@ -72,8 +72,8 @@ pub trait ComposedByMutations {
 
 /// A [`Mutator`] scheduling multiple [`Mutator`]s for an input.
 pub trait ScheduledMutator<I, S>: ComposedByMutations + Mutator<I, S>
-where
-    Self::Mutations: MutatorsTuple<I, S>,
+    where
+        Self::Mutations: MutatorsTuple<I, S>,
 {
     /// Compute the number of iterations used to apply stacked mutations
     fn iterations(&self, state: &mut S, input: &I) -> u64;
@@ -111,9 +111,9 @@ impl<MT> Named for SingleChoiceScheduledMutator<MT> {
 }
 
 impl<I, MT, S> Mutator<I, S> for SingleChoiceScheduledMutator<MT>
-where
-    MT: MutatorsTuple<I, S>,
-    S: HasRand,
+    where
+        MT: MutatorsTuple<I, S>,
+        S: HasRand,
 {
     #[inline]
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
@@ -141,9 +141,9 @@ impl<MT> ComposedByMutations for SingleChoiceScheduledMutator<MT> {
 }
 
 impl<I, MT, S> ScheduledMutator<I, S> for SingleChoiceScheduledMutator<MT>
-where
-    MT: MutatorsTuple<I, S>,
-    S: HasRand,
+    where
+        MT: MutatorsTuple<I, S>,
+        S: HasRand,
 {
     /// Compute the number of iterations used to apply stacked mutations
     fn iterations(&self, _state: &mut S, _: &I) -> u64 {
@@ -163,8 +163,8 @@ where
 }
 
 impl<MT> SingleChoiceScheduledMutator<MT>
-where
-    MT: NamedTuple,
+    where
+        MT: NamedTuple,
 {
     /// Create a new [`SingleChoiceScheduledMutator`] instance specifying mutations
     pub fn new(mutations: MT) -> Self {
@@ -193,9 +193,9 @@ impl<MT> Named for HavocScheduledMutator<MT> {
 }
 
 impl<I, MT, S> Mutator<I, S> for HavocScheduledMutator<MT>
-where
-    MT: MutatorsTuple<I, S>,
-    S: HasRand,
+    where
+        MT: MutatorsTuple<I, S>,
+        S: HasRand,
 {
     #[inline]
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
@@ -223,13 +223,13 @@ impl<MT> ComposedByMutations for HavocScheduledMutator<MT> {
 }
 
 impl<I, MT, S> ScheduledMutator<I, S> for HavocScheduledMutator<MT>
-where
-    MT: MutatorsTuple<I, S>,
-    S: HasRand,
+    where
+        MT: MutatorsTuple<I, S>,
+        S: HasRand,
 {
     /// Compute the number of iterations used to apply stacked mutations
     fn iterations(&self, state: &mut S, _: &I) -> u64 {
-        1 << (state.rand_mut().below_or_zero(self.max_stack_pow))
+        1 << (1 + state.rand_mut().below_or_zero(self.max_stack_pow))
     }
 
     /// Get the next mutation to apply
@@ -245,8 +245,8 @@ where
 }
 
 impl<MT> HavocScheduledMutator<MT>
-where
-    MT: NamedTuple,
+    where
+        MT: NamedTuple,
 {
     /// Create a new [`HavocScheduledMutator`] instance specifying mutations
     pub fn new(mutations: MT) -> Self {
@@ -295,10 +295,10 @@ impl<SM> Named for LoggerScheduledMutator<SM> {
 }
 
 impl<I, S, SM> Mutator<I, S> for LoggerScheduledMutator<SM>
-where
-    S: HasRand + HasCorpus<I>,
-    SM: ScheduledMutator<I, S>,
-    SM::Mutations: MutatorsTuple<I, S> + NamedTuple,
+    where
+        S: HasRand + HasCorpus<I>,
+        SM: ScheduledMutator<I, S>,
+        SM::Mutations: MutatorsTuple<I, S> + NamedTuple,
 {
     fn mutate(&mut self, state: &mut S, input: &mut I) -> Result<MutationResult, Error> {
         self.scheduled_mutate(state, input)
@@ -322,8 +322,8 @@ where
 }
 
 impl<SM> ComposedByMutations for LoggerScheduledMutator<SM>
-where
-    SM: ComposedByMutations,
+    where
+        SM: ComposedByMutations,
 {
     type Mutations = SM::Mutations;
     #[inline]
@@ -338,10 +338,10 @@ where
 }
 
 impl<I, S, SM> ScheduledMutator<I, S> for LoggerScheduledMutator<SM>
-where
-    S: HasRand + HasCorpus<I>,
-    SM: ScheduledMutator<I, S>,
-    SM::Mutations: MutatorsTuple<I, S> + NamedTuple,
+    where
+        S: HasRand + HasCorpus<I>,
+        SM: ScheduledMutator<I, S>,
+        SM::Mutations: MutatorsTuple<I, S> + NamedTuple,
 {
     /// Compute the number of iterations used to apply stacked mutations
     fn iterations(&self, state: &mut S, _: &I) -> u64 {
@@ -376,8 +376,8 @@ where
 }
 
 impl<SM> LoggerScheduledMutator<SM>
-where
-    SM: Named,
+    where
+        SM: Named,
 {
     /// Create a new [`LoggerScheduledMutator`] instance without mutations and corpus
     /// This mutator logs all mutators.
@@ -430,7 +430,7 @@ mod tests {
             &mut feedback,
             &mut objective,
         )
-        .unwrap();
+            .unwrap();
 
         let mut splice = SpliceMutator::new();
         splice.mutate(&mut state, &mut input).unwrap();
@@ -461,7 +461,7 @@ mod tests {
             &mut feedback,
             &mut objective,
         )
-        .unwrap();
+            .unwrap();
 
         let mut havoc = HavocScheduledMutator::new(havoc_mutations());
 
@@ -502,7 +502,7 @@ mod tests {
             &mut feedback,
             &mut objective,
         )
-        .unwrap();
+            .unwrap();
 
         let mut mutator = SingleChoiceScheduledMutator::new(havoc_mutations());
 
