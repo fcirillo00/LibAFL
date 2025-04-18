@@ -260,6 +260,10 @@ where
         let num = self.iterations(state)?;
         let mut testcase = state.current_testcase_mut()?;
 
+        if testcase.disabled() {
+            return Ok(());
+        }
+
         let Ok(input) = I1::try_transform_from(&mut testcase, state) else {
             return Ok(());
         };
