@@ -259,6 +259,9 @@ pub struct Forkserver {
     st_pipe: Pipe,
     /// Control pipe
     ctl_pipe: Pipe,
+
+    /// The file where the forkserver write stdout
+    pub stdout_file: File,
     /// Pid of the current forked child (child of the forkserver) during execution
     child_pid: Option<Pid>,
     /// The last status reported to us by the in-target forkserver
@@ -356,21 +359,22 @@ impl Forkserver {
         let mut st_pipe = Pipe::new().unwrap();
         let mut ctl_pipe = Pipe::new().unwrap();
 
-        let (stdout, stderr) = if debug_output {
+        let (stdout, stderr, stdout_file) = if debug_output {
             match log_directory {
                 Some(path) => {
                     if !&path.is_dir() {
                         fs::create_dir_all(&path).expect("Failed to create log directory");
                     }
                     let out_file = File::create(&path.join("stdout")).unwrap();
+                    let out_file_clone = out_file.try_clone().unwrap();
                     let err_file = File::create(&path.join("stderr")).unwrap();
-                    (Stdio::from(out_file), Stdio::from(err_file))
+                    (Stdio::from(out_file), Stdio::from(err_file), out_file_clone)
                 }
-                None => {(Stdio::inherit(), Stdio::inherit())}
+                None => {(Stdio::inherit(), Stdio::inherit(), File::create("/dev/null").unwrap())},
             }
 
         } else {
-            (Stdio::null(), Stdio::null())
+            (Stdio::null(), Stdio::null(), File::create("/dev/null").unwrap())
         };
 
         let mut command = Command::new(target);
@@ -433,6 +437,7 @@ impl Forkserver {
             fsrv_handle,
             st_pipe,
             ctl_pipe,
+            stdout_file,
             child_pid: None,
             status: 0,
             last_run_timed_out: 0,
